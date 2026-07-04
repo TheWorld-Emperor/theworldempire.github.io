@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TheWorldEmpire | Command Registry</title>
+<style>
+  :root{
+    --void:#050505;
+    --paper:#ffffff;
+    --steel:#9a9a9a;
+    --ash:#141414;
+    --line:#2a2a2a;
+    --glow: rgba(255,255,255,.22);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100%;height:100%;background:var(--void);color:var(--paper);
+    font-family:'Courier New', Courier, monospace;
+    overflow:hidden;
+  }
+  ::selection{background:#fff;color:#000;}
+
+  /* ---------- frame chrome ---------- */
+  .frame{position:fixed;inset:0;border:1px solid rgba(255,255,255,.5);pointer-events:none;z-index:50;}
+  .frame::before,.frame::after{content:"";position:absolute;width:26px;height:26px;border:2px solid #fff;}
+  .frame::before{top:14px;left:14px;border-right:none;border-bottom:none;}
+  .frame::after{bottom:14px;right:14px;border-left:none;border-top:none;}
+  .corner-tr{position:fixed;top:14px;right:14px;width:26px;height:26px;border:2px solid #fff;border-left:none;border-bottom:none;z-index:50;pointer-events:none;}
+  .corner-bl{position:fixed;bottom:14px;left:14px;width:26px;height:26px;border:2px solid #fff;border-right:none;border-top:none;z-index:50;pointer-events:none;}
+
+  .hud-label{position:fixed;top:26px;left:30px;font-size:10px;letter-spacing:3px;color:var(--steel);z-index:50;}
+  .hud-label span{color:#fff;}
+  .hud-clock{position:fixed;top:26px;right:30px;font-size:10px;letter-spacing:2px;color:var(--steel);z-index:50;text-align:right;}
+
+  /* ---------- reactive canvas ---------- */
+  #field{position:fixed;inset:0;z-index:1;}
+
+  /* ---------- slider ---------- */
+  .deck{position:relative;width:100%;height:100%;z-index:5;}
+  .page{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;transform:translateY(14px);
+    transition:opacity .7s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear .7s;
+    padding:70px 60px;
+  }
+  .page.active{opacity:1;visibility:visible;transform:translateY(0);transition:opacity .7s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1);}
+
+  /* ---------- page 01 : hero ---------- */
+  .rank-tag{font-size:10px;letter-spacing:6px;color:var(--steel);margin-bottom:18px;}
+  .emblem{width:78px;height:96px;filter:drop-shadow(0 0 10px rgba(255,255,255,.55));margin-bottom:8px;}
+  .jet-wrap{position:absolute;top:50%;left:50%;width:min(1000px,86vw);transform:translate(-50%,-52%);z-index:0;opacity:.5;}
+  .jet-wrap img{width:100%;display:block;filter:grayscale(1) contrast(1.35) brightness(1.05);mix-blend-mode:screen;}
+  .jet-wrap::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, var(--void) 78%);}
+  .title-block{position:relative;z-index:2;text-align:center;}
+  .main-title{font-family:'Georgia',serif;font-style:italic;font-weight:400;font-size:clamp(2.6rem,7vw,5.4rem);letter-spacing:3px;text-shadow:0 0 30px rgba(255,255,255,.35);}
+  .sub-title{margin-top:14px;font-size:.78rem;letter-spacing:7px;text-transform:uppercase;color:var(--steel);}
+  .hero-foot{position:absolute;bottom:64px;left:0;right:0;display:flex;justify-content:center;gap:36px;font-size:10px;letter-spacing:3px;color:var(--steel);z-index:2;}
+  .hero-foot b{color:#fff;font-weight:400;}
+
+  /* ---------- page 02 : command structure ---------- */
+  .sec-eyebrow{font-size:10px;letter-spacing:6px;color:var(--steel);margin-bottom:34px;text-align:center;}
+  .council{display:flex;flex-direction:column;align-items:center;width:100%;max-width:1040px;}
+  .node{
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    border:1px solid #fff;padding:22px 40px;background:rgba(255,255,255,.02);
+    position:relative;
+  }
+  .node.apex{padding:26px 56px;}
+  .node .ring{width:64px;height:64px;border:1px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:1.3rem;}
+  .node .role{font-size:9px;letter-spacing:3px;color:var(--steel);margin-bottom:6px;text-transform:uppercase;}
+  .node .name{font-size:.95rem;letter-spacing:1px;}
+  .connector{width:1px;height:46px;background:linear-gradient(#fff,rgba(255,255,255,.15));}
+  .connector-h{height:1px;background:rgba(255,255,255,.35);}
+  .rank-row{display:grid;grid-auto-flow:column;gap:28px;justify-content:center;margin-top:0;}
+  .row-frame{position:relative;padding-top:46px;}
+  .row-frame::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:1px;height:46px;background:linear-gradient(#fff,rgba(255,255,255,.15));}
+  .rank-card{width:180px;border:1px solid rgba(255,255,255,.7);padding:20px 14px;text-align:center;background:rgba(255,255,255,.015);}
+  .rank-card .ring{width:52px;height:52px;margin:0 auto 12px;border:1px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+  .rank-card .role{font-size:8.5px;letter-spacing:2.5px;color:var(--steel);margin-bottom:6px;text-transform:uppercase;}
+  .rank-card .name{font-size:.82rem;}
+
+  /* ---------- page 03 : marshals ---------- */
+  .marshal-row{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;max-width:1100px;}
+  .marshal{width:150px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .marshal svg{width:110px;height:150px;filter:drop-shadow(0 0 12px rgba(255,255,255,.25));}
+  .marshal .role{margin-top:12px;font-size:9px;letter-spacing:3px;color:var(--steel);text-transform:uppercase;}
+  .marshal .id{font-size:.78rem;letter-spacing:1px;margin-top:2px;}
+
+  /* ---------- nav ---------- */
+  .navdots{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:60;}
+  .navdots button{width:8px;height:8px;border:1px solid #fff;background:transparent;cursor:pointer;padding:0;transform:rotate(45deg);transition:background .3s;}
+  .navdots button.on{background:#fff;}
+  .arrow{position:fixed;top:50%;transform:translateY(-50%);z-index:60;background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;width:42px;height:42px;cursor:pointer;font-size:16px;font-family:inherit;transition:background .25s, border-color .25s;}
+  .arrow:hover{background:rgba(255,255,255,.12);border-color:#fff;}
+  .arrow.left{left:26px;}
+  .arrow.right{right:26px;}
+
+  @media(max-width:720px){
+    .arrow{display:none;}
+    .rank-row{grid-auto-flow:row;}
+    .marshal-row{gap:20px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="frame"></div>
+  <div class="corner-tr"></div>
+  <div class="corner-bl"></div>
+  <div class="hud-label">REGISTRY // <span>THEWORLDEMPIRE</span></div>
+  <div class="hud-clock" id="hudclock">SEC. 00-00</div>
+
+  <canvas id="field"></canvas>
+
+  <div class="deck" id="deck">
+
+    <!-- PAGE 1 : HERO -->
+    <section class="page active" data-page="0">
+      <div class="jet-wrap"><img src="jet.png" alt=""></div>
+      <div class="title-block">
+        <div class="rank-tag">RESMİ KAYIT · OFFICIAL PORTFOLIO</div>
+        <svg class="emblem" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 8 L72 48 L59 48 L59 88 L76 112 L50 98 L24 112 L41 88 L41 48 L28 48 Z"
+                fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
+        </svg>
+        <h1 class="main-title">TheWorldEmpire</h1>
+        <div class="sub-title">Command &amp; Registry Division</div>
+      </div>
+      <div class="hero-foot">
+        <span>KURULUŞ <b>DISCORD</b></span>
+        <span>SINIF <b>İMPARATORLUK</b></span>
+        <span>DURUM <b>AKTİF</b></span>
+      </div>
+    </section>
+
+    <!-- PAGE 2 : COMMAND STRUCTURE -->
+    <section class="page" data-page="1">
+      <div class="sec-eyebrow">KOMUTA KADEMESİ</div>
+      <div class="council">
+        <div class="node apex">
+          <div class="ring">♛</div>
+          <div class="role">Dünya İmparatoru</div>
+          <div class="name">TheWorldEmperor</div>
+        </div>
+        <div class="row-frame">
+          <div class="rank-row">
+            <div class="rank-card">
+              <div class="ring">◆</div>
+              <div class="role">Başkan</div>
+              <div class="name">Golden</div>
+            </div>
+            <div class="rank-card">
+              <div class="ring">◆</div>
+              <div class="role">Yönetim Kurulu</div>
+              <div class="name">Prof. Dr. M. Atmaca</div>
+            </div>
+            <div class="rank-card">
+              <div class="ring">◆</div>
+              <div class="role">Yönetim Kurulu</div>
+              <div class="name">FlameLord</div>
+            </div>
+            <div class="rank-card">
+              <div class="ring">▣</div>
+              <div class="role">Geliştirici</div>
+              <div class="name">ST3MRSTY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 3 : MARSHALS -->
+    <section class="page" data-page="2">
+      <div class="sec-eyebrow">MAREŞALLER</div>
+      <div class="marshal-row" id="marshalRow"></div>
+    </section>
+
+  </div>
+
+  <button class="arrow left" id="prevBtn">‹</button>
+  <button class="arrow right" id="nextBtn">›</button>
+  <div class="navdots" id="dots"></div>
+
+<script>
+/* ---------------- page navigation ---------------- */
+const pages = Array.from(document.querySelectorAll('.page'));
+const dotsWrap = document.getElementById('dots');
+let current = 0;
+
+pages.forEach((_,i)=>{
+  const b = document.createElement('button');
+  if(i===0) b.classList.add('on');
+  b.addEventListener('click', ()=>goTo(i));
+  dotsWrap.appendChild(b);
+});
+const dots = Array.from(dotsWrap.children);
+
+function goTo(i){
+  i = (i+pages.length)%pages.length;
+  pages[current].classList.remove('active');
+  dots[current].classList.remove('on');
+  current = i;
+  pages[current].classList.add('active');
+  dots[current].classList.add('on');
+}
+document.getElementById('prevBtn').addEventListener('click', ()=>goTo(current-1));
+document.getElementById('nextBtn').addEventListener('click', ()=>goTo(current+1));
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight') goTo(current+1);
+  if(e.key==='ArrowLeft') goTo(current-1);
+});
+let touchX=null;
+window.addEventListener('touchstart', e=>touchX=e.touches[0].clientX);
+window.addEventListener('touchend', e=>{
+  if(touchX===null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if(dx>50) goTo(current-1);
+  if(dx<-50) goTo(current+1);
+  touchX=null;
+});
+
+/* ---------------- clock / sector readout ---------------- */
+const clockEl = document.getElementById('hudclock');
+function tickClock(){
+  const d = new Date();
+  const p = n=>String(n).padStart(2,'0');
+  clockEl.textContent = `SEC. ${p(d.getHours())}-${p(d.getMinutes())}`;
+}
+tickClock(); setInterval(tickClock,1000);
+
+/* ---------------- faceless marshal svg ---------------- */
+function marshalSVG(){
+  return `
+  <svg viewBox="0 0 110 150" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="55,10 70,34 62,34 78,60 66,60 82,90 60,90 60,140 50,140 50,90 28,90 44,60 32,60 48,34 40,34"
+      fill="#0a0a0a" stroke="#ffffff" stroke-width="2" stroke-linejoin="miter"/>
+    <circle class="eye" cx="46" cy="46" r="2.6" fill="#ffffff"/>
+    <circle class="eye" cx="64" cy="46" r="2.6" fill="#ffffff"/>
+  </svg>`;
+}
+const marshalNames = ["M-01","M-02","M-03","M-04","M-05"];
+const row = document.getElementById('marshalRow');
+marshalNames.forEach(id=>{
+  const div = document.createElement('div');
+  div.className='marshal';
+  div.innerHTML = marshalSVG() + `<div class="role">Mareşal</div><div class="id">${id}</div>`;
+  row.appendChild(div);
+});
+
+/* ---------------- reactive geometric field ---------------- */
+const canvas = document.getElementById('field');
+const ctx = canvas.getContext('2d');
+let W,H;
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+const GAP = 84;
+let mouse = {x:-9999,y:-9999};
+window.addEventListener('mousemove', e=>{mouse.x=e.clientX; mouse.y=e.clientY;});
+window.addEventListener('mouseleave', ()=>{mouse.x=-9999; mouse.y=-9999;});
+
+let nodes = [];
+function buildNodes(){
+  nodes = [];
+  for(let x=GAP/2; x<W; x+=GAP){
+    for(let y=GAP/2; y<H; y+=GAP){
+      nodes.push({x,y,base:x+y, phase:Math.random()*Math.PI*2});
+    }
+  }
+}
+buildNodes();
+window.addEventListener('resize', buildNodes);
+
+function drawGlyph(x,y,size,rot,alpha,type){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(rot);
+  ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if(type===0){
+    ctx.moveTo(-size,-size); ctx.lineTo(size,-size); ctx.lineTo(size,size); ctx.lineTo(-size,size); ctx.closePath();
+  } else if(type===1){
+    ctx.moveTo(0,-size); ctx.lineTo(size,0); ctx.lineTo(0,size); ctx.lineTo(-size,0); ctx.closePath();
+  } else {
+    ctx.moveTo(0,-size); ctx.lineTo(size*0.87,size*0.5); ctx.lineTo(-size*0.87,size*0.5); ctx.closePath();
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+let t = 0;
+function loop(){
+  t += 0.008;
+  ctx.clearRect(0,0,W,H);
+  for(const n of nodes){
+    const dx = mouse.x - n.x, dy = mouse.y - n.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const influence = Math.max(0, 1 - dist/260);
+    const baseAlpha = 0.045 + Math.sin(t + n.phase)*0.02;
+    const alpha = Math.min(0.9, baseAlpha + influence*0.6);
+    const size = 5 + influence*13 + Math.sin(t*1.3+n.phase)*1.5;
+    const rot = t*0.6 + influence*2.2 + n.phase;
+    const type = Math.floor((n.base + (influence>0.05?4:0)) ) % 3;
+    drawGlyph(n.x, n.y, size, rot, alpha, type);
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
